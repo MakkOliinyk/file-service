@@ -4,11 +4,11 @@ const routes = async (fastify) => {
         const { filename, file, userId } = data.fields;
 
         const uploadParams = {
-            Bucket: 'YOUR_BUCKET_NAME',
+            Bucket: 'CHANGE_ME',
             Key: filename,
             Body: file,
             Metadata: {
-                'userId': userId,
+                'ownerId': userId,
             },
         };
 
@@ -26,7 +26,7 @@ const routes = async (fastify) => {
         const { userId } = request.params;
 
         const listParams = {
-            Bucket: 'YOUR_BUCKET_NAME',
+            Bucket: 'CHANGE_ME',
             Prefix: '',
         };
 
@@ -44,7 +44,7 @@ const routes = async (fastify) => {
         const { fileId } = request.params;
 
         const deleteParams = {
-            Bucket: 'YOUR_BUCKET_NAME',
+            Bucket: 'CHANGE_ME',
             Key: fileId,
         };
 
@@ -62,7 +62,7 @@ const routes = async (fastify) => {
         const { fileId } = request.params;
 
         const downloadParams = {
-            Bucket: 'YOUR_BUCKET_NAME',
+            Bucket: 'CHANGE_ME',
             Key: fileId,
         };
 

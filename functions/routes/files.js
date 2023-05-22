@@ -66,10 +66,6 @@ const routes = async (fastify) => {
             reply.status(500).send({ error: 'Error: Failed to retrieve files' });
         }
     });
-
-    fastify.get('/test', async (request, reply) => {
-        reply.send({ text: 'SUCCESS' });
-    });
 };
 
 module.exports = routes;

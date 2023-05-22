@@ -1,11 +1,12 @@
 const fastify = require('fastify');
 const functions = require('firebase-functions');
 const files = require('./routes/files');
-const { getStorageInstance } = require('./config/dbconnector');
+const { getStorageInstance, getFirestoreInstance } = require('./config/dbconnector');
 
 const app = fastify({ logger: true });
 
-app.decorate('db', getStorageInstance());
+app.decorate('storage', getStorageInstance());
+app.decorate('db', getFirestoreInstance());
 app.register(files);
 
 const handler = async (req, res) => {

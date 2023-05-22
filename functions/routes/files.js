@@ -2,22 +2,27 @@ const { v4 } = require('uuid');
 
 const routes = async (fastify) => {
     fastify.post('/documents', async (request, reply) => {
-        const { bucket } = this;
+        const { storage, db } = this;
         const data = await request.file();
         const { filename, file, ownerId } = data.fields;
 
         const uploadParams = {
-            destination: filename,
-            metadata: {
-                id: v4(),
-                ownerId: ownerId
-            }
+            destination: filename
         };
 
         try {
-            await bucket.upload(file, uploadParams);
+            await storage.upload(file, uploadParams);
             console.log(`Success: File uploaded successfully: ${filename}`);
-            reply.send({ message: 'File uploaded successfully', fileId: uploadParams.metadata.id });
+
+            const fileId = v4();
+
+            // Store file metadata in Firestore
+            await db.collection('files').doc(fileId).set({
+                filename,
+                ownerId,
+            });
+
+            reply.send({ message: 'File uploaded successfully' });
         } catch (error) {
             console.error('Error: Failed to upload file', error);
             reply.status(500).send({ error: 'Error: Failed to upload file' });
@@ -25,11 +30,24 @@ const routes = async (fastify) => {
     });
 
     fastify.delete('/documents/:fileId', async (request, reply) => {
-        const { bucket } = this;
+        const { storage, db } = this;
         const { fileId } = request.params;
 
         try {
-            await bucket.file(fileId).delete();
+            const fileDoc = await db.collection('files').doc(fileId).get();
+            const fileData = fileDoc.data();
+
+            if (!fileData) {
+                reply.status(404).send({ error: 'File not found' });
+                return;
+            }
+
+            const fileName = fileData.filename;
+
+            await storage.file(fileName).delete();
+
+            await fileDoc.ref.delete();
+
             console.log(`Success: File with ID ${fileId} deleted successfully`);
             reply.send({ message: 'Success: File deleted successfully' });
         } catch (error) {
@@ -39,12 +57,20 @@ const routes = async (fastify) => {
     });
 
     fastify.get('/documents/:fileId', async (request, reply) => {
-        const { bucket } = this;
+        const { storage, db } = this;
         const { fileId } = request.params;
 
         try {
-            const [file] = await bucket.file(fileId).download();
-            reply.header('Content-Disposition', `attachment; filename=${fileId}`);
+            const fileDoc = await db.collection('files').doc(fileId).get();
+            const fileData = fileDoc.data();
+
+            if (!fileData) {
+                reply.status(404).send({ error: 'File not found' });
+                return;
+            }
+
+            const [file] = await storage.file(fileData.filename).download();
+            reply.header('Content-Disposition', `attachment; filename=${fileData.filename}`);
             reply.type('application/octet-stream');
             reply.send(file);
         } catch (error) {
@@ -54,13 +80,13 @@ const routes = async (fastify) => {
     });
 
     fastify.get('/documents', async (request, reply) => {
-        const { bucket } = this;
+        const { db } = this;
         const { ownerId } = request.query;
 
         try {
-            const [files] = await bucket.getFiles();
-            const filteredFiles = files.filter(file => file.metadata.ownerId === ownerId);
-            reply.send({ files: filteredFiles });
+            const filesRef = await db.collection('files').where('ownerId', '==', ownerId).get();
+            const files = filesRef.docs.map((doc) => doc.data());
+            reply.send({ files });
         } catch (error) {
             console.error('Error: Failed to retrieve files', error);
             reply.status(500).send({ error: 'Error: Failed to retrieve files' });

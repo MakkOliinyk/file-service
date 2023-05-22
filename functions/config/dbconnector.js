@@ -7,7 +7,9 @@ admin.initializeApp({
 });
 
 const bucket = admin.storage().bucket();
+const db = admin.firestore();
 
 module.exports = {
-    getStorageInstance: () => bucket
+    getStorageInstance: () => bucket,
+    getFirestoreInstance: () => db
 };

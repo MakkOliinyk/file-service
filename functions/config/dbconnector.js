@@ -6,7 +6,7 @@ admin.initializeApp({
     storageBucket: 'gs://file-service-87ddd.appspot.com/'
 });
 
-const bucket = admin.storage().bucket();
+const bucket = admin.storage().bucket('gs://file-service-87ddd.appspot.com/');
 const db = admin.firestore();
 
 module.exports = {

@@ -49,7 +49,7 @@ const routes = (app) => {
             reply.send({ message: 'Success: File deleted successfully' });
         } catch (error) {
             console.error('Error: Failed to delete file', error);
-            reply.status(500).send({ error: 'Error: Failed to delete file' });
+            reply.status(500).send(error);
         }
     });
 
@@ -71,7 +71,7 @@ const routes = (app) => {
             reply.send(file);
         } catch (error) {
             console.error('Error: Failed to download file', error);
-            reply.status(500).send({ error: 'Error: Failed to download file' });
+            reply.status(500).send(error);
         }
     });
 
@@ -84,7 +84,7 @@ const routes = (app) => {
             reply.send({ files });
         } catch (error) {
             console.error('Error: Failed to retrieve files', error);
-            reply.status(500).send({ error: 'Error: Failed to retrieve files' });
+            reply.status(500).send(error);
         }
     });
 };

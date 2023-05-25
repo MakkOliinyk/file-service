@@ -1,40 +1,38 @@
 const { v4 } = require('uuid');
+const fileUploadMiddleware = require('busboy-firebase');
 
-const routes = async (fastify) => {
-    fastify.post('/documents', async (request, reply) => {
-        const { storage, db } = this;
-        const data = await request.file();
-        const { filename, file, ownerId } = data.fields;
+const { getStorageInstance, getFirestoreInstance } = require('../config/dbconnector');
 
-        const uploadParams = {
-            destination: filename
-        };
+const routes = (app) => {
+    const storage = getStorageInstance();
+    const db = getFirestoreInstance();
+
+    app.post('/documents', fileUploadMiddleware, async (request, reply) => {
+        const data = await request.files[0];
+        const { fileName, ownerId } = request.body;
+        const { buffer } = data;
 
         try {
-            await storage.upload(file, uploadParams);
-            console.log(`Success: File uploaded successfully: ${filename}`);
+            await storage.file(fileName).save(buffer);
+            console.log(`Success: File uploaded successfully: ${fileName}`);
 
-            const fileId = v4();
-
-            // Store file metadata in Firestore
-            await db.collection('files').doc(fileId).set({
-                filename,
+            const dataRef = await db.collection('filesData').add({
+                fileName,
                 ownerId,
             });
 
-            reply.send({ message: 'File uploaded successfully' });
+            reply.send({ message: 'ok', fileId: dataRef.id });
         } catch (error) {
             console.error('Error: Failed to upload file', error);
-            reply.status(500).send({ error: 'Error: Failed to upload file' });
+            reply.status(500).send(error);
         }
     });
 
-    fastify.delete('/documents/:fileId', async (request, reply) => {
-        const { storage, db } = this;
+    app.delete('/documents/:fileId', async (request, reply) => {
         const { fileId } = request.params;
 
         try {
-            const fileDoc = await db.collection('files').doc(fileId).get();
+            const fileDoc = await db.collection('filesData').doc(fileId).get();
             const fileData = fileDoc.data();
 
             if (!fileData) {
@@ -42,10 +40,9 @@ const routes = async (fastify) => {
                 return;
             }
 
-            const fileName = fileData.filename;
+            const fileName = fileData.fileName;
 
             await storage.file(fileName).delete();
-
             await fileDoc.ref.delete();
 
             console.log(`Success: File with ID ${fileId} deleted successfully`);
@@ -56,12 +53,11 @@ const routes = async (fastify) => {
         }
     });
 
-    fastify.get('/documents/:fileId', async (request, reply) => {
-        const { storage, db } = this;
+    app.get('/documents/:fileId', fileUploadMiddleware, async (request, reply) => {
         const { fileId } = request.params;
 
         try {
-            const fileDoc = await db.collection('files').doc(fileId).get();
+            const fileDoc = await db.collection('filesData').doc(fileId).get();
             const fileData = fileDoc.data();
 
             if (!fileData) {
@@ -69,8 +65,8 @@ const routes = async (fastify) => {
                 return;
             }
 
-            const [file] = await storage.file(fileData.filename).download();
-            reply.header('Content-Disposition', `attachment; filename=${fileData.filename}`);
+            const [file] = await storage.file(fileData.fileName).download();
+            reply.header('Content-Disposition', `attachment; filename=${fileData.fileName}`);
             reply.type('application/octet-stream');
             reply.send(file);
         } catch (error) {
@@ -79,12 +75,11 @@ const routes = async (fastify) => {
         }
     });
 
-    fastify.get('/documents', async (request, reply) => {
-        const { db } = this;
+    app.get('/documents', fileUploadMiddleware, async (request, reply) => {
         const { ownerId } = request.query;
 
         try {
-            const filesRef = await db.collection('files').where('ownerId', '==', ownerId).get();
+            const filesRef = await db.collection('filesData').where('ownerId', '==', ownerId).get();
             const files = filesRef.docs.map((doc) => doc.data());
             reply.send({ files });
         } catch (error) {

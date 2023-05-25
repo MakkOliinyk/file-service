@@ -1,31 +1,12 @@
-const fastify = require('fastify');
+const express = require('express');
 const functions = require('firebase-functions');
-const files = require('./routes/files');
-const { getStorageInstance, getFirestoreInstance } = require('./config/dbconnector');
 
-let requestHandler = null;
+const filesRoutes = require('./routes/files');
 
-const app = fastify({
-    logger: true,
-    serverFactory: (handler) => {
-        requestHandler = handler;
-        return require('http').createServer();
-    },
-});
+const app = express();
 
-app.addContentTypeParser('application/json', {}, (req, body, done) => {
-    done(null, body.body);
-});
+filesRoutes(app);
 
-app.decorate('storage', getStorageInstance());
-app.decorate('db', getFirestoreInstance());
-app.register(files);
-
-exports.app = functions.https.onRequest((req, res) => {
-    app.ready((err) => {
-        if (err) throw err;
-        requestHandler(req, res);
-    });
-});
+exports.app = functions.https.onRequest(app);
 
 

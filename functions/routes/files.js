@@ -1,4 +1,3 @@
-const { v4 } = require('uuid');
 const fileUploadMiddleware = require('busboy-firebase');
 
 const { getStorageInstance, getFirestoreInstance } = require('../config/dbconnector');
@@ -53,7 +52,7 @@ const routes = (app) => {
         }
     });
 
-    app.get('/documents/:fileId', fileUploadMiddleware, async (request, reply) => {
+    app.get('/documents/:fileId/info', async (request, reply) => {
         const { fileId } = request.params;
 
         try {
@@ -65,22 +64,48 @@ const routes = (app) => {
                 return;
             }
 
-            const [file] = await storage.file(fileData.fileName).download();
+            const fileName = fileData.fileName;
+
+            reply.send({ fileName });
+        } catch (error) {
+            reply.status(500).send(error);
+        }
+    });
+
+    app.get('/documents/:fileId', async (request, reply) => {
+        const { fileId } = request.params;
+
+        try {
+            const fileDoc = await db.collection('filesData').doc(fileId).get();
+            const fileData = fileDoc.data();
+
+            if (!fileData) {
+                reply.status(404).send({ error: 'File not found' });
+                return;
+            }
+
+            const file = await storage.file(fileData.fileName);
+            const fileStream = file.createReadStream();
+
             reply.header('Content-Disposition', `attachment; filename=${fileData.fileName}`);
             reply.type('application/octet-stream');
-            reply.send(file);
+            fileStream.pipe(reply);
         } catch (error) {
             console.error('Error: Failed to download file', error);
             reply.status(500).send(error);
         }
     });
 
-    app.get('/documents', fileUploadMiddleware, async (request, reply) => {
+    app.get('/documents', async (request, reply) => {
         const { ownerId } = request.query;
 
         try {
             const filesRef = await db.collection('filesData').where('ownerId', '==', ownerId).get();
-            const files = filesRef.docs.map((doc) => doc.data());
+            const files = filesRef.docs.map((doc) => {
+                const data = doc.data();
+                data.id = doc.id;
+                return data;
+            });
             reply.send({ files });
         } catch (error) {
             console.error('Error: Failed to retrieve files', error);
